@@ -1,7 +1,20 @@
 Cyclone
 =======
 
-[![Build Status](https://travis-ci.org/fiorix/cyclone.svg?branch=master)](https://travis-ci.org/fiorix/cyclone)
+#### Note: This cyclone version is for python 3 only (tested on python 3.5 & 3.6), so it is incompatible with python 2.x.
+
+#### Status: all tests passed, so it ought to work (I have used it in production for a few months without problems)
+
+#### For the sake of simplicity, I removed the outdated redis module(you can install txredisapi separately). 
+
+#### There are no test cases for websocket.
+
+#### Welcome to fork.
+
+#### use twisted 18.9 or later for python 3.7
+
+&nbsp;
+
 
 Cyclone is a web server framework for Python, that implements the Tornado API
 as a Twisted protocol.

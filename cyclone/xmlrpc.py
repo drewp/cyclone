@@ -24,7 +24,9 @@ For more information, check out the `RPC demo
 <https://github.com/fiorix/cyclone/tree/master/demos/rpc>`_.
 """
 
-import xmlrpclib
+#import xmlrpclib
+from xmlrpc import client as xmlrpc_client
+from xmlrpc import server as xmlrpc_server
 
 from twisted.internet import defer
 from cyclone.web import RequestHandler
@@ -60,15 +62,14 @@ class XmlrpcRequestHandler(RequestHandler):
         self._auto_finish = False
         self.set_header("Content-Type", "text/xml")
         try:
-            args, functionPath = xmlrpclib.loads(self.request.body)
+            args, functionPath = xmlrpc_server.loads(self.request.body)
         except Exception as e:
-            f = xmlrpclib.Fault(self.FAILURE,
-                                "Can't deserialize input: %s" % e)
+            f = xmlrpc_server.Fault(self.FAILURE, "Can't deserialize input: %s" % e)
             self._cbRender(f)
         else:
             try:
                 function = self._getFunction(functionPath)
-            except xmlrpclib.Fault as f:
+            except xmlrpc_server.Fault as f:
                 self._cbRender(f)
             else:
                 d = defer.maybeDeferred(function, *args)
@@ -80,38 +81,34 @@ class XmlrpcRequestHandler(RequestHandler):
             prefix, functionPath = functionPath.split(self.separator, 1)
             handler = self.getSubHandler(prefix)
             if handler is None:
-                raise xmlrpclib.Fault(self.NOT_FOUND,
+                raise xmlrpc_server.Fault(self.NOT_FOUND,
                     "no such subHandler %s" % prefix)
             return self._getFunction(functionPath)
 
         f = getattr(self, "xmlrpc_%s" % functionPath, None)
         if f is None:
-            raise xmlrpclib.Fault(self.NOT_FOUND,
-                "function %s not found" % functionPath)
+            raise xmlrpc_server.Fault(self.NOT_FOUND, "function %s not found" % functionPath)
         elif not callable(f):
-            raise xmlrpclib.Fault(self.NOT_FOUND,
-                "function %s not callable" % functionPath)
+            raise xmlrpc_server.Fault(self.NOT_FOUND, "function %s not callable" % functionPath)
         else:
             return f
 
     def _cbRender(self, result):
-        if not isinstance(result, xmlrpclib.Fault):
+        if not isinstance(result, xmlrpc_server.Fault):
             result = (result,)
 
         try:
-            s = xmlrpclib.dumps(result,
-                methodresponse=True, allow_none=self.allowNone)
+            s = xmlrpc_server.dumps(result, methodresponse=True, allow_none=self.allowNone)
         except Exception as e:
-            f = xmlrpclib.Fault(self.FAILURE, "can't serialize output: %s" % e)
-            s = xmlrpclib.dumps(f,
-                methodresponse=True, allow_none=self.allowNone)
+            f = xmlrpc_server.Fault(self.FAILURE, "can't serialize output: %s" % e)
+            s = xmlrpc_server.dumps(f, methodresponse=True, allow_none=self.allowNone)
 
         self.finish(s)
 
     def _ebRender(self, failure):
-        if isinstance(failure.value, xmlrpclib.Fault):
+        if isinstance(failure.value, xmlrpc_server.Fault):
             s = failure.value
         else:
-            s = xmlrpclib.Fault(self.FAILURE, "error")
+            s = xmlrpc_server.Fault(self.FAILURE, "error")
 
-        self.finish(xmlrpclib.dumps(s, methodresponse=True))
+        self.finish(xmlrpc_server.dumps(s, methodresponse=True))
