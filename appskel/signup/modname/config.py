@@ -88,6 +88,6 @@ def my_parse_config(filename):
 def parse_config(filename):
     try:
         return my_parse_config(filename)
-    except Exception as e:
+    except Exception, e:
         print("Error parsing %s: %s" % (filename, e))
         sys.exit(1)

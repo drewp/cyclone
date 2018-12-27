@@ -284,7 +284,7 @@ class Locale(object):
         """
         if self.code.startswith("ru"):
             relative = False
-        if type(date) in (int, long, float):
+        if type(date) in (int, float):
             date = datetime.datetime.utcfromtimestamp(date)
         now = datetime.datetime.utcnow()
         if date > now:

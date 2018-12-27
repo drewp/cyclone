@@ -31,26 +31,21 @@ This module also defines the `HTTPRequest` class which is exposed via
 
 from __future__ import absolute_import, division, with_statement
 
-try:
-    import http.cookies as Cookie
-except ImportError:
-    # python 2 compatibility
-    import Cookie
 
+import http
 import socket
 import time
+import io
+import tempfile
 
-from io import BytesIO as StringIO
-from tempfile import TemporaryFile
 from twisted.python import log
 from twisted.protocols import basic
 from twisted.internet import address
 from twisted.internet import defer
 from twisted.internet import interfaces
 
-from cyclone.escape import utf8, native_str, parse_qs_bytes
-from cyclone import httputil
-from cyclone.util import bytes_type
+from cyclone.escape import utf8, native_str, parse_qs_bytes, to_unicode
+#from cyclone import httputil
 
 
 class _BadRequestException(Exception):
@@ -62,14 +57,14 @@ class HTTPConnection(basic.LineReceiver):
     """Handles a connection to an HTTP client, executing HTTP requests.
 
     We parse HTTP headers and bodies, and execute the request callback
-    until the HTTP conection is closed.
+    until the HTTP connection is closed.
 
     If ``xheaders`` is ``True``, we support the ``X-Real-Ip`` and ``X-Scheme``
     headers, which override the remote IP and HTTP scheme for all requests.
     These headers are useful when running Tornado behind a reverse proxy or
     load balancer.
     """
-    delimiter = "\r\n"
+    #delimiter = "\r\n"
 
     def connectionMade(self):
         self._headersbuffer = []
@@ -96,7 +91,7 @@ class HTTPConnection(basic.LineReceiver):
         if line:
             self._headersbuffer.append(line + self.delimiter)
         else:
-            buff = "".join(self._headersbuffer)
+            buff = b"".join(self._headersbuffer)
             self._headersbuffer = []
             self._on_headers(buff)
 
@@ -105,7 +100,7 @@ class HTTPConnection(basic.LineReceiver):
             data, rest = data[:self.content_length], data[self.content_length:]
             self.content_length -= len(data)
         else:
-            rest = ''
+            rest = b''
 
         self._contentbuffer.write(data)
         if self.content_length == 0:
@@ -150,39 +145,41 @@ class HTTPConnection(basic.LineReceiver):
 
     def _on_headers(self, data):
         try:
-            data = native_str(data.decode("latin1"))
-            eol = data.find("\r\n")
+            eol = data.find(b"\r\n")
             start_line = data[:eol]
             try:
-                method, uri, version = start_line.split(" ")
+                method, uri, version = start_line.split(b" ")
             except ValueError:
                 raise _BadRequestException("Malformed HTTP request line")
-            if not version.startswith("HTTP/"):
-                raise _BadRequestException(
-                    "Malformed HTTP version in HTTP Request-Line")
+            if not version.startswith(b"HTTP/"):
+                raise _BadRequestException("Malformed HTTP version in HTTP Request-Line")
+            headers = {}
+            for binary in data[eol:].splitlines():
+                header = binary.decode('utf8')
+                if header:
+                    key, value = header.split(':', 1)
+                    headers[key] = value
             try:
-                headers = httputil.HTTPHeaders.parse(data[eol:])
                 content_length = int(headers.get("Content-Length", 0))
             except ValueError:
-                raise _BadRequestException(
-                    "Malformed HTTP headers")
+                raise _BadRequestException("Malformed HTTP headers")
             self._request = HTTPRequest(
-                connection=self, method=method, uri=uri, version=version,
+                connection=self, method=method.decode('utf8'), uri=uri.decode('utf8'),
+                version=version.decode('utf8'),
                 headers=headers, remote_ip=self._remote_ip)
 
             if content_length:
                 if headers.get("Expect") == "100-continue":
-                    self.transport.write("HTTP/1.1 100 (Continue)\r\n\r\n")
+                    self.transport.write(b"HTTP/1.1 100 (Continue)\r\n\r\n")
 
                 if content_length < 100000:
-                    self._contentbuffer = StringIO()
+                    self._contentbuffer = io.BytesIO()
                 else:
-                    self._contentbuffer = TemporaryFile()
+                    self._contentbuffer = tempfile.TemporaryFile()
 
                 self.content_length = content_length
                 self.setRawMode()
                 return
-
             self.request_callback(self._request)
         except _BadRequestException as e:
             log.msg("Malformed HTTP request from %s: %s", self._remote_ip, e)
@@ -194,7 +191,7 @@ class HTTPConnection(basic.LineReceiver):
         if self._request.method in ("POST", "PATCH", "PUT"):
             if content_type.startswith("application/x-www-form-urlencoded"):
                 arguments = parse_qs_bytes(native_str(self._request.body))
-                for name, values in arguments.iteritems():
+                for name, values in arguments.items():
                     values = [v for v in values if v]
                     if values:
                         self._request.arguments.setdefault(name,
@@ -303,7 +300,7 @@ class HTTPRequest(object):
         self.uri = uri
         self.version = version
         self.headers = headers or httputil.HTTPHeaders()
-        self.body = body or ""
+        self.body = body or b""
         if connection and connection.xheaders:
             # Squid uses X-Forwarded-For, others use X-Real-Ip
             self.remote_ip = self.headers.get(
@@ -340,18 +337,16 @@ class HTTPRequest(object):
     def cookies(self):
         """A dictionary of Cookie.Morsel objects."""
         if not hasattr(self, "_cookies"):
-            self._cookies = Cookie.SimpleCookie()
+            self._cookies = http.cookies.SimpleCookie()
             if "Cookie" in self.headers:
                 try:
-                    self._cookies.load(
-                        native_str(self.headers["Cookie"]))
+                    self._cookies.load(native_str(self.headers["Cookie"]))
                 except Exception:
                     self._cookies = {}
         return self._cookies
 
     def write(self, chunk):
         """Writes the given chunk to the response stream."""
-        assert isinstance(chunk, bytes_type)
         self.connection.write(chunk)
 
     def finish(self):
@@ -393,4 +388,3 @@ class HTTPRequest(object):
             if e.args[0] == socket.EAI_NONAME:
                 return False
             raise
-        return True

@@ -52,27 +52,9 @@ http://twistedmatrix.com/documents/current/core/howto/threading.html
 
 from __future__ import absolute_import, division, with_statement
 
-try:
-    import Cookie  # py2
-except ImportError:
-    import http.cookies as Cookie  # py3
-
-try:
-    import urlparse  # py2
-except ImportError:
-    import urllib.parse as urlparse  # py3
-
-try:
-    from urllib import urlencode  # py2
-except ImportError:
-    from urllib.parse import urlencode  # py3
-
-try:
-    import httplib # py2
-except ImportError:
-    import http.client as httplib  # py3
-
-
+#import Cookie
+from http import cookies as http_cookies
+from http import client as http_client
 import base64
 import binascii
 import calendar
@@ -93,6 +75,9 @@ import threading
 import time
 import traceback
 import types
+import urllib
+#import urlparse
+from urllib import parse as urllib_parse
 import uuid
 
 import cyclone
@@ -101,10 +86,10 @@ from cyclone import httpserver
 from cyclone import locale
 from cyclone import template
 from cyclone.escape import utf8, _unicode
-from cyclone.util import ObjectDict, import_object, \
-    bytes_type, unicode_type, \
-    list_type, dict_type, int_type, tuple_type, string_type
-
+from cyclone.util import ObjectDict
+from cyclone.util import bytes_type
+from cyclone.util import import_object
+from cyclone.util import unicode_type
 from io import BytesIO
 from twisted.python import failure
 from twisted.python import log
@@ -255,7 +240,7 @@ class RequestHandler(object):
                 self.set_header("Connection", "Keep-Alive")
         self._write_buffer = []
         self._status_code = 200
-        self._reason = httplib.responses[200]
+        self._reason = http_client.responses[200]
 
     def set_default_headers(self):
         """Override this to set HTTP headers at the beginning of the request.
@@ -280,7 +265,7 @@ class RequestHandler(object):
             self._reason = escape.native_str(reason)
         else:
             try:
-                self._reason = httplib.responses[status_code]
+                self._reason = http_client.responses[status_code]
             except KeyError:
                 raise ValueError("unknown status code %d", status_code)
 
@@ -316,9 +301,9 @@ class RequestHandler(object):
 
     def _convert_header_value(self, value):
         if isinstance(value, bytes_type):
-            pass
+            value = value.decode('utf-8')
         elif isinstance(value, unicode_type):
-            value = value.encode("utf-8")
+            pass
         elif isinstance(value, numbers.Integral):
             # return immediately since we know the converted value will be safe
             return str(value)
@@ -385,8 +370,12 @@ class RequestHandler(object):
 
         The name of the argument is provided if known, but may be None
         (e.g. for unnamed groups in the url regex).
+
+        Globally, value is bytes, unless value is a substring (example : url)
         """
-        return _unicode(value)
+        if isinstance(value, bytes):
+            value = value.decode('utf8')
+        return value
 
     @property
     def cookies(self):
@@ -413,7 +402,7 @@ class RequestHandler(object):
             # Don't let us accidentally inject bad stuff
             raise ValueError("Invalid cookie %r: %r" % (name, value))
         if not hasattr(self, "_new_cookie"):
-            self._new_cookie = Cookie.SimpleCookie()
+            self._new_cookie = http_cookies.SimpleCookie()
         if name in self._new_cookie:
             del self._new_cookie[name]
         self._new_cookie[name] = value
@@ -442,7 +431,7 @@ class RequestHandler(object):
 
     def clear_all_cookies(self):
         """Deletes all the cookies the user sent with this request."""
-        for name in self.request.cookies.iterkeys():
+        for name in self.request.cookies.keys():
             self.clear_cookie(name)
 
     def set_secure_cookie(self, name, value, expires_days=30, **kwargs):
@@ -500,18 +489,17 @@ class RequestHandler(object):
         if status is None:
             status = 301 if permanent else 302
         else:
-            assert isinstance(status, int_type) and 300 <= status <= 399
+            assert isinstance(status, int) and 300 <= status <= 399
         self.set_status(status)
         # Remove whitespace
-        url = re.sub(r"[\x00-\x20]+", "", utf8(url))
+        url = re.sub(r"[\x00-\x20]+", "", url)
         if not self.request.uri.startswith('/'):
             request_uri = ''
         if self.request.uri.startswith('//'):
             request_uri = ''
         else:
             request_uri = self.request.uri
-        self.set_header("Location", urlparse.urljoin(utf8(request_uri),
-                                                     url))
+        self.set_header("Location", urllib_parse.urljoin(request_uri, url))
         self.finish()
 
     def write(self, chunk):
@@ -530,12 +518,13 @@ class RequestHandler(object):
         http://haacked.com/archive/2008/11/20/\
             anatomy-of-a-subtle-json-vulnerability.aspx
         """
+
         if self._finished:
             raise RuntimeError("Cannot write() after finish().  May be caused "
                                "by using async operations without the "
                                "@asynchronous decorator.")
-        if isinstance(chunk, dict_type) or \
-                (self.serialize_lists and isinstance(chunk, list_type)):
+        if isinstance(chunk, dict) or \
+                (self.serialize_lists and isinstance(chunk, list)):
             chunk = escape.json_encode(chunk)
             self.set_header("Content-Type", "application/json")
         chunk = utf8(chunk)
@@ -698,7 +687,7 @@ class RequestHandler(object):
 
     def flush(self, include_footers=False):
         """Flushes the current output buffer to the network."""
-        chunk = "".join(self._write_buffer)
+        chunk = b"".join(self._write_buffer)
         self._write_buffer = []
 
         if not self._headers_written:
@@ -711,7 +700,7 @@ class RequestHandler(object):
         else:
             for transform in self._transforms:  # pragma: no cover
                 chunk = transform.transform_chunk(chunk, include_footers)
-            headers = ""
+            headers = b""
 
         # Ignore the chunk and only write the headers for HEAD requests
         if self.request.method == "HEAD":
@@ -799,6 +788,7 @@ class RequestHandler(object):
         try:
             self.write_error(status_code, **kwargs)
         except Exception as e:
+            print('toto')
             log.msg("Uncaught exception in write_error: " + str(e))
         if not self._finished:
             self.finish()
@@ -871,6 +861,7 @@ class RequestHandler(object):
                 kwargs['exception'] = exc_info[1]
                 try:
                     # Put the traceback into sys.exc_info()
+                    #raise exc_info[0], exc_info[1], exc_info[2]
                     raise exc_info[0].with_traceback(exc_info[1], exc_info[2])
                 except Exception:
                     self.finish(self.get_error_html(status_code, **kwargs))
@@ -1135,7 +1126,7 @@ class RequestHandler(object):
     def _deferred_handler(self, function, *args, **kwargs):
         try:
             result = function(*args, **kwargs)
-        except:
+        except Exception as e:
             return defer.fail(failure.Failure(
                               captureVars=defer.Deferred.debug))
         else:
@@ -1159,8 +1150,7 @@ class RequestHandler(object):
     def _execute_handler(self, r, args, kwargs):
         if not self._finished:
             args = [self.decode_argument(arg) for arg in args]
-            kwargs = dict((k, self.decode_argument(v, name=k))
-                            for (k, v) in kwargs.iteritems())
+            kwargs = dict((k, self.decode_argument(v, name=k)) for (k, v) in kwargs.items())
             function = getattr(self, self.request.method.lower(), self.default)
             d = self._deferred_handler(function, *args, **kwargs)
             d.addCallbacks(self._execute_success, self._execute_failure)
@@ -1178,12 +1168,11 @@ class RequestHandler(object):
         lines = [utf8(self.request.version + " " +
                       str(self._status_code) +
                       " " + reason)]
-        lines.extend([(utf8(n) + ": " + utf8(v)) for n, v in
-                  itertools.chain(self._headers.items(), self._list_headers)])
+        lines.extend([(utf8(n) + b": " + utf8(v)) for n, v in itertools.chain(self._headers.items(), self._list_headers)])
         if hasattr(self, "_new_cookie"):
             for cookie in self._new_cookie.values():
                 lines.append(utf8("Set-Cookie: " + cookie.OutputString(None)))
-        return "\r\n".join(lines) + "\r\n\r\n"
+        return b"\r\n".join(lines) + b"\r\n\r\n"
 
     def _log(self):
         """Logs the current request.
@@ -1214,7 +1203,7 @@ class RequestHandler(object):
             if e.log_message and self.settings.get("debug") is True:
                 log.msg(str(e))
 
-            if e.status_code not in httplib.responses:
+            if e.status_code not in http_client.responses:
                 log.msg("Bad HTTP status code: " + repr(e.status_code))
                 e.status_code = 500
 
@@ -1435,12 +1424,12 @@ class Application(protocol.ServerFactory):
             self.handlers.append((re.compile(host_pattern), handlers))
 
         for spec in host_handlers:
-            if isinstance(spec, tuple_type):
+            if isinstance(spec, tuple):
                 assert len(spec) in (2, 3)
                 pattern = spec[0]
                 handler = spec[1]
 
-                if isinstance(handler, string_type):
+                if isinstance(handler, str):
                     # import the Module and instantiate the class
                     # Must be a fully qualified name (module.ClassName)
                     try:
@@ -1484,7 +1473,7 @@ class Application(protocol.ServerFactory):
         if isinstance(methods, types.ModuleType):
             self._load_ui_methods(dict((n, getattr(methods, n))
                                        for n in dir(methods)))
-        elif isinstance(methods, list_type):
+        elif isinstance(methods, list):
             for m in methods:
                 self._load_ui_methods(m)
         else:
@@ -1497,11 +1486,11 @@ class Application(protocol.ServerFactory):
         if isinstance(modules, types.ModuleType):
             self._load_ui_modules(dict((n, getattr(modules, n))
                                        for n in dir(modules)))
-        elif isinstance(modules, list_type):
+        elif isinstance(modules, list):
             for m in modules:
                 self._load_ui_modules(m)
         else:
-            assert isinstance(modules, dict_type)
+            assert isinstance(modules, dict)
             for name, cls in modules.items():
                 try:
                     if issubclass(cls, UIModule):
@@ -1530,7 +1519,7 @@ class Application(protocol.ServerFactory):
                         def unquote(s):
                             if s is None:
                                 return s
-                            return escape.url_unescape(s, encoding=None)
+                            return escape.url_unescape(s)
                         # Pass matched groups to the handler.  Since
                         # match.groups() includes both named and
                         # unnamed groups,we want to use either groups
@@ -1615,8 +1604,7 @@ class HTTPError(Exception):
         if self.log_message:
             return self.log_message % self.args
         else:
-            return self.reason or \
-                   httplib.responses.get(self.status_code, "Unknown")
+            return self.reason or http_client.responses.get(self.status_code, "Unknown")
 
 
 class HTTPAuthenticationRequired(HTTPError):
@@ -1952,13 +1940,13 @@ def authenticated(method):
             if self.request.method in ("GET", "HEAD"):
                 url = self.get_login_url()
                 if "?" not in url:
-                    if urlparse.urlsplit(url).scheme:
+                    if urllib_parse.urlsplit(url).scheme:
                         # if login url is absolute, make next absolute too
                         next_url = self.request.full_url()
                     else:
                         next_url = self.request.uri
                     url = "%s?%s" % (url,
-                                     urlencode(dict(next=next_url)))
+                                     urllib_parse.urlencode(dict(next=next_url)))
                 return self.redirect(url)
             raise HTTPError(403)
         return method(self, *args, **kwargs)
@@ -2065,7 +2053,7 @@ class TemplateModule(UIModule):
     def javascript_files(self):
         result = []
         for f in self._get_resources("javascript_files"):
-            if isinstance(f, (unicode, bytes_type)):
+            if isinstance(f, (str, bytes_type)):
                 result.append(f)
             else:
                 result.extend(f)
@@ -2077,7 +2065,7 @@ class TemplateModule(UIModule):
     def css_files(self):
         result = []
         for f in self._get_resources("css_files"):
-            if isinstance(f, (unicode, bytes_type)):
+            if isinstance(f, (str, bytes_type)):
                 result.append(f)
             else:
                 result.extend(f)
@@ -2089,8 +2077,10 @@ class TemplateModule(UIModule):
     def html_body(self):
         return "".join(self._get_resources("html_body"))
 
+
 class URLReverseError(Exception):
     """Error generating reversed URL."""
+
 
 class URLSpec(object):
     """Specifies mappings between URLs and handlers."""
@@ -2142,7 +2132,7 @@ class URLSpec(object):
         if self.regex.groups != pattern.count('('):
             # The pattern is too complicated for our simplistic matching,
             # so we can't support reversing it.
-            return None, None
+            return (None, None)
 
         pieces = []
         for fragment in pattern.split('('):
@@ -2153,7 +2143,7 @@ class URLSpec(object):
             else:
                 pieces.append(fragment)
 
-        return ''.join(pieces), self.regex.groups
+        return (''.join(pieces), self.regex.groups)
 
     def reverse(self, *args, **kwargs):
         if not self._path:
@@ -2178,7 +2168,7 @@ class URLSpec(object):
         if kwargs:
             items = list(kwargs.items())
             items.sort(key=lambda el: el[0])
-            rv += "?" + urlencode(items)
+            rv += "?" + urllib_parse.urlencode(items)
         return rv
 
 url = URLSpec
@@ -2188,7 +2178,7 @@ def _time_independent_equals(a, b):
     if len(a) != len(b):
         return False
     result = 0
-    if isinstance(a[0], int_type):  # python3 byte strings
+    if isinstance(a[0], types.IntType):  # python3 byte strings
         for x, y in zip(a, b):
             result |= x ^ y
     else:  # python2
