@@ -5,9 +5,13 @@ python:
   - 3.5 # debian
   - 3.6 # ubuntu / amazonlinux
   - 3.7 # fedora
-  - nigthly
-allow_failures: nigthly
-dist: xenial
+  - nightly
+
+# Allow failures on cpython nightly build
+matrix:
+  fast_finish: true
+  allow_failures:
+    - python: nightly
 
 install:
 - pip install -r cyclone/tests/test_requirements.txt
