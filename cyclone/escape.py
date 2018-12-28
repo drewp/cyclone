@@ -115,7 +115,9 @@ def to_unicode(value):
     If the argument is already a unicode string or None, it is returned
     unchanged.  Otherwise it must be a byte string and is decoded as utf8.
     """
-    return value.decode("utf-8")
+    if isinstance(value, bytes):
+        value = value.decode("utf8")
+    return value
 
 # to_unicode was previously named _unicode not because it was private,
 # but to avoid conflicts with the built-in unicode() function/type
