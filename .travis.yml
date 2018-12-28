@@ -1,6 +1,14 @@
 language: python
+
+# Test on python3
 python:
-- '2.7'
+  - 3.5 # debian
+  - 3.6 # ubuntu / amazonlinux
+  - 3.7 # fedora
+  - nigthly
+allow_failures: nigthly
+dis: xenial
+
 install:
 - pip install -r cyclone/tests/test_requirements.txt
 - pip install coveralls
