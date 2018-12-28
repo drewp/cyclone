@@ -23,6 +23,9 @@ before_script: python setup.py install
 
 script: coverage run `which trial` cyclone
 after_success: coveralls
+
+# deploy on pypi
+# only on 3.6 (avoid multiple deployment)
 deploy:
   provider: pypi
   user: fiorix
@@ -31,4 +34,5 @@ deploy:
   on:
     tags: true
     branch: master
+    condition: $TRAVIS_PYTHON_VERSION = 3.6
   distributions: "sdist bdist_wheel"
