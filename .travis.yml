@@ -4,7 +4,6 @@ language: python
 python:
   - 3.5 # debian
   - 3.6 # ubuntu / amazonlinux
-  - 3.7 # fedora
   - nightly
 
 # Allow failures on cpython nightly build
