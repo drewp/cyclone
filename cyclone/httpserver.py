@@ -45,7 +45,7 @@ from twisted.internet import defer
 from twisted.internet import interfaces
 
 from cyclone.escape import utf8, native_str, parse_qs_bytes, to_unicode
-#from cyclone import httputil
+from cyclone import httputil
 
 
 class _BadRequestException(Exception):

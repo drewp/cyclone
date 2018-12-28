@@ -2178,7 +2178,7 @@ def _time_independent_equals(a, b):
     if len(a) != len(b):
         return False
     result = 0
-    if isinstance(a[0], types.IntType):  # python3 byte strings
+    if isinstance(a[0], int):  # python3 byte strings
         for x, y in zip(a, b):
             result |= x ^ y
     else:  # python2
@@ -2188,8 +2188,8 @@ def _time_independent_equals(a, b):
 
 
 def create_signed_value(secret, name, value):
-    timestamp = utf8(str(int(time.time())))
-    value = base64.b64encode(utf8(value))
+    timestamp = str(int(time.time()))
+    value = base64.b64encode(bytes(value,'utf8')).decode('utf8')
     signature = _create_signature(secret, name, value, timestamp)
     value = "|".join([value, timestamp, signature])
     return value
@@ -2198,7 +2198,7 @@ def create_signed_value(secret, name, value):
 def decode_signed_value(secret, name, value, max_age_days=31):
     if not value:
         return None
-    parts = utf8(value).split("|")
+    parts = value.split("|")
     if len(parts) != 3:
         return None
     signature = _create_signature(secret, name, parts[0], parts[1])
@@ -2230,4 +2230,4 @@ def _create_signature(secret, *parts):
     hash = hmac.new(utf8(secret), digestmod=hashlib.sha1)
     for part in parts:
         hash.update(utf8(part))
-    return utf8(hash.hexdigest())
+    return hash.hexdigest()
