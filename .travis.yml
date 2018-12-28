@@ -7,11 +7,16 @@ python:
   - 3.7 # fedora
   - nigthly
 allow_failures: nigthly
-dis: xenial
+dist: xenial
 
 install:
 - pip install -r cyclone/tests/test_requirements.txt
 - pip install coveralls
+
+# cyclone has to be installed 
+# so as trial (twisted test framework) could run
+before_script: python setup.py install
+
 script: coverage run `which trial` cyclone
 after_success: coveralls
 deploy:
