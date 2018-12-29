@@ -788,7 +788,6 @@ class RequestHandler(object):
         try:
             self.write_error(status_code, **kwargs)
         except Exception as e:
-            print('toto')
             log.msg("Uncaught exception in write_error: " + str(e))
         if not self._finished:
             self.finish()

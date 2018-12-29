@@ -158,7 +158,7 @@ class HTTPConnection(basic.LineReceiver):
                 header = binary.decode('utf8')
                 if header:
                     key, value = header.split(':', 1)
-                    headers[key] = value
+                    headers[key] = value.strip()
             try:
                 content_length = int(headers.get("Content-Length", 0))
             except ValueError:
