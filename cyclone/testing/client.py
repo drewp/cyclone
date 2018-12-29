@@ -89,10 +89,10 @@ class Client(object):
     def request(self, method, uri, *args, **kwargs):
         params = kwargs.pop("params", {}) or {}
         if method in ["GET", "HEAD", "OPTIONS"] and params:
-            uri = uri + "?" + urllib.urlencode(params)
+            uri = uri + "?" + urllib.parse.urlencode(params)
         elif method in ["POST", "PATCH", "PUT"]\
                 and params and not kwargs['body']:
-            kwargs['body'] = urllib.urlencode(params)
+            kwargs['body'] = urllib.parse.urlencode(params)
         connection = kwargs.pop('connection')
         if not connection:
             connection = HTTPConnection()
