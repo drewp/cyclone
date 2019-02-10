@@ -184,7 +184,6 @@ with ``{# ... #}``.
     ``{% continue %}`` may be used inside the loop.
 """
 
-from __future__ import absolute_import, division, with_statement
 
 import collections
 import contextlib
@@ -197,7 +196,7 @@ import sys
 import threading
 import traceback
 
-from cStringIO import StringIO
+from io import StringIO
 from cyclone import escape
 from cyclone.util import ObjectDict
 from cyclone.util import bytes_type
