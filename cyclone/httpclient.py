@@ -63,7 +63,7 @@ class Receiver(Protocol):
         self.data.append(bytes)
 
     def connectionLost(self, reason):
-        self.finished.callback("".join(self.data))
+        self.finished.callback(b"".join(self.data))
 
 
 class HTTPClient(object):
@@ -113,7 +113,7 @@ class HTTPClient(object):
             if response.code in (301, 302, 303) and self.followRedirect:
                 mr -= 1
                 headers = dict(response.headers.getAllRawHeaders())
-                location = headers.get("Location")
+                location = headers.get(b"Location")
                 if location:
                     if isinstance(location, list):
                         location = location[0]
@@ -136,7 +136,7 @@ class HTTPClient(object):
         # have no body too.
         # http://www.w3.org/Protocols/rfc2616/rfc2616-sec9.html
         if response.code in (204, 304) or self.method == b'HEAD':
-            response.body = ''
+            response.body = b''
         else:
             d = defer.Deferred()
             response.deliverBody(Receiver(d))
