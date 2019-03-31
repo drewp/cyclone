@@ -87,11 +87,11 @@ class HTTPClient(object):
         else:
             agent._connectTimeout = self.timeout
             self.agent = agent
-        self.method = self._kwargs.get("method", self.body and "POST" or "GET")
-        if self.method.upper() == "POST" and \
-                                  "Content-Type" not in self.headers:
-            self.headers["Content-Type"] = \
-                        ["application/x-www-form-urlencoded"]
+        self.method = self._kwargs.get("method", self.body and b"POST" or b"GET")
+        if self.method.upper() == b"POST" and \
+                                  b"Content-Type" not in self.headers:
+            self.headers[b"Content-Type"] = \
+                        [b"application/x-www-form-urlencoded"]
 
         self.response = None
         if self.body:
@@ -120,7 +120,7 @@ class HTTPClient(object):
 
                     #print("redirecting to:", location)
                     response = yield self.agent.request(
-                        "GET",  # self.method,
+                        b"GET",  # self.method,
                         location,
                         request_headers,
                         self.body_producer)
@@ -135,7 +135,7 @@ class HTTPClient(object):
         # responses, which have been requested with HEAD method
         # have no body too.
         # http://www.w3.org/Protocols/rfc2616/rfc2616-sec9.html
-        if response.code in (204, 304) or self.method == 'HEAD':
+        if response.code in (204, 304) or self.method == b'HEAD':
             response.body = ''
         else:
             d = defer.Deferred()
@@ -225,9 +225,9 @@ class JsonRPC:
         r = defer.Deferred()
 
         fetch_kwargs = {
-            'method': "POST",
+            'method': b"POST",
             'postdata': q,
-            'headers': {"Content-Type": ["application/json-rpc"]},
+            'headers': {b"Content-Type": [b"application/json-rpc"]},
         }
         fetch_kwargs.update(self.__fetch_kwargs)
         d = fetch(self.__rpcUrl, *self.__fetch_args, **fetch_kwargs)
