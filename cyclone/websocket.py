@@ -31,6 +31,7 @@ import struct
 import cyclone
 import cyclone.web
 from cyclone import escape as cyclone_escape
+from typing import Dict, Optional, Union
 
 from twisted.python import log
 
@@ -97,11 +98,11 @@ class WebSocketHandler(cyclone.web.RequestHandler):
     def connectionLost(self, reason):
         pass
 
-    def messageReceived(self, message):
+    def messageReceived(self, message: bytes):
         """Gets called when a message is received from the peer."""
         pass
 
-    def sendMessage(self, message):
+    def sendMessage(self, message: Union[str, Dict]):
         """Sends the given message to the client of this Web Socket.
 
         The message may be either a string or a dict (which will be
