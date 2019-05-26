@@ -133,6 +133,7 @@ class WebSocketHandler(cyclone.web.RequestHandler):
                 "HTTP/1.1 426 Upgrade Required\r\n"
                 "Sec-WebSocket-Version: 8\r\n\r\n"))
             self.transport.loseConnection()
+            return
         else:
             self.ws_protocol = WebSocketProtocol76(self)
 
