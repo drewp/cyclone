@@ -125,12 +125,11 @@ class WebSocketHandler(cyclone.web.RequestHandler):
 
         self._connectionMade = functools.partial(self.connectionMade,
                                                  *args, **kwargs)
-
-        if "Sec-Websocket-Version" in self.request.headers and \
-            self.request.headers['Sec-Websocket-Version'] in ('7', '8', '13'):
+        version = getWsHeader(self.request.headers, 'Sec-Websocket-Version')
+        if version in ('7', '8', '13'):
             self.ws_protocol = WebSocketProtocol17(self)
-        elif "Sec-WebSocket-Version" in self.request.headers:
-            self.transport.write(cyclone_escape.utf8(
+        elif version is not None:
+            self.transport.write(cyclone.escape.utf8(
                 "HTTP/1.1 426 Upgrade Required\r\n"
                 "Sec-WebSocket-Version: 8\r\n\r\n"))
             self.transport.loseConnection()
@@ -143,9 +142,20 @@ class WebSocketHandler(cyclone.web.RequestHandler):
         self.ws_protocol.acceptConnection()
 
     def forbidConnection(self, message):
-        self.transport.write(cyclone_escape.utf8("HTTP/1.1 403 Forbidden\r\nContent-Length: %s\r\n\r\n%s" % (str(len(message)), message)))
+        self.transport.write(
+            "HTTP/1.1 403 Forbidden\r\nContent-Length: %s\r\n\r\n%s" %
+            (str(len(message)), message))
         return self.transport.loseConnection()
 
+
+# Not sure why twisted's headers object isn't just case-insensitive,
+# but recent chrome versions are sending 'WebSocket' (big S) and that
+# was failing.
+def getWsHeader(headers, key: str, default=None) -> Optional[str]:
+    key2 = key.replace('Sec-Websocket', 'Sec-WebSocket')
+    if key not in headers and key2 in headers:
+        return headers.get(key2)
+    return headers.get(key, default)
 
 class WebSocketProtocol(object):
     def __init__(self, handler):
@@ -190,9 +200,9 @@ class WebSocketProtocol17(WebSocketProtocol):
         if 'Origin' in self.request.headers:
             origin = self.request.headers['Origin']
         else:
-            origin = self.request.headers['Sec-Websocket-Origin']
+            origin = getWsHeader(self.request.headers, 'Sec-Websocket-Origin')
 
-        key = self.request.headers['Sec-Websocket-Key']
+        key = getWsHeader(self.request.headers, 'Sec-Websocket-Key')
         accept = base64.b64encode(hashlib.sha1(("%s%s" % (key, '258EAFA5-E914-47DA-95CA-C5AB0DC85B11')).encode('utf-8')).digest())
 
         self.transport.write(
