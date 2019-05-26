@@ -247,13 +247,13 @@ class WebSocketProtocol17(WebSocketProtocol):
             raise _NotEnoughFrame()
 
         # first byte contains fin, rsv and ops
-        b = ord(data[0])
+        b = data[0]
         self._frame_fin = (b & 0x80) != 0
         self._frame_rsv = (b & 0x70) >> 4
         self._frame_ops = b & 0x0f
 
         # second byte contains mask and payload length
-        b = ord(data[1])
+        b = data[1]
         self._frame_mask = (b & 0x80) != 0
         frame_payload_len1 = b & 0x7f
 
@@ -290,7 +290,7 @@ class WebSocketProtocol17(WebSocketProtocol):
         if self._frame_mask:
             frame_mask = data[i - 4:i]
             for j in range(0, 4):
-                frame_mask_array.append(ord(frame_mask[j]))
+                frame_mask_array.append(frame_mask[j])
             payload = bytearray(data[i:i + self._frame_payload_len])
             for k in range(0, self._frame_payload_len):
                 payload[k] ^= frame_mask_array[k % 4]
